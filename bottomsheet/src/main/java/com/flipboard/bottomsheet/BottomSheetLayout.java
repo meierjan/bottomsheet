@@ -284,15 +284,18 @@ public class BottomSheetLayout extends FrameLayout {
 
     @Override
     public boolean onTouchEvent(@NonNull MotionEvent event) {
+        // if sheet not showing -> dont handle touch
         if (!isSheetShowing()) {
             return false;
         }
+        // if sheet is animating -> dont handle touch
         if (isAnimating()) {
             return false;
         }
         if (!hasIntercepted) {
             return onInterceptTouchEvent(event);
         }
+
         if (event.getAction() == MotionEvent.ACTION_DOWN) {
             // Snapshot the state of things when finger touches the screen.
             // This allows us to calculate deltas without losing precision which we would have if we calculated deltas based on the previous touch.
@@ -606,6 +609,10 @@ public class BottomSheetLayout extends FrameLayout {
      * @param viewTransformer The view transformer to use when presenting the sheet.
      */
     public void showWithSheetView(final View sheetView, final ViewTransformer viewTransformer) {
+        showWithSheetView(sheetView, viewTransformer, State.PEEKED);
+    }
+
+    public void showWithSheetView(final View sheetView, final ViewTransformer viewTransformer, final State initalViewState) {
         if (state != State.HIDDEN) {
             Runnable runAfterDismissThis = new Runnable() {
                 @Override
@@ -654,7 +661,18 @@ public class BottomSheetLayout extends FrameLayout {
                         // Make sure sheet view is still here when first draw happens.
                         // In the case of a large lag it could be that the view is dismissed before it is drawn resulting in sheet view being null here.
                         if (getSheetView() != null) {
-                            peekSheet();
+                          switch (initalViewState) {
+                            case EXPANDED:
+                              expandSheet();
+                              break;
+                            case HIDDEN:
+                              dismissSheet();
+                              break;
+                            default:
+                              peekSheet();
+                              break;
+                          }
+
                         }
                     }
                 });
@@ -676,9 +694,10 @@ public class BottomSheetLayout extends FrameLayout {
                     setSheetTranslation(newSheetViewHeight);
                 }
                 currentSheetViewHeight = newSheetViewHeight;
+                sheetView.invalidate();
             }
         };
-        sheetView.addOnLayoutChangeListener(sheetViewOnLayoutChangeListener);
+//        sheetView.addOnLayoutChangeListener(sheetViewOnLayoutChangeListener);
     }
 
     /**
@@ -687,17 +706,17 @@ public class BottomSheetLayout extends FrameLayout {
     public void dismissSheet() {
         dismissSheet(null);
     }
-    
+
     private void dismissSheet(Runnable runAfterDismissThis) {
         if (state == State.HIDDEN) {
             runAfterDismiss = null;
             return;
         }
         // This must be set every time, including if the parameter is null
-        // Otherwise a new sheet might be shown when the caller called dismiss after a showWithSheet call, which would be 
+        // Otherwise a new sheet might be shown when the caller called dismiss after a showWithSheet call, which would be
         runAfterDismiss = runAfterDismissThis;
         final View sheetView = getSheetView();
-        sheetView.removeOnLayoutChangeListener(sheetViewOnLayoutChangeListener);
+//        sheetView.removeOnLayoutChangeListener(sheetViewOnLayoutChangeListener);
         cancelCurrentAnimation();
         ObjectAnimator anim = ObjectAnimator.ofFloat(this, SHEET_TRANSLATION, 0);
         anim.setDuration(ANIMATION_DURATION);
